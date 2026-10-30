@@ -72,6 +72,14 @@ button.ghost,.seg button:not(.on){background:var(--chip);color:var(--text);borde
 </fieldset></div>
 
 <div class="card">
+<h2>Share with your server</h2>
+<div class="row"><button onclick="mkCode()">Generate share code</button><input id="sc" type="text" readonly size="22" placeholder="your code appears here"><button class="ghost" onclick="cp('code')">Copy code</button><button class="ghost" onclick="cp('link')">Copy link</button></div>
+<div class="row"><label>Got a code?</label><input id="jc" type="text" size="22" placeholder="e.g. BF-R2AD-ABC123X" autocomplete="off"><button onclick="joinCode()">Apply code</button></div>
+<div id="serr" class="muted"></div>
+<div class="muted">Set up your clock once, generate a code, and teammates on the same server paste it to sync without the boss timer. Codes only hold the start time and your settings. Everyone’s device clock must be accurate, or their alarms will be off by the same amount.</div>
+</div>
+
+<div class="card">
 <h2>Alarms &amp; settings</h2>
 <div class="row"><button id="en" onclick="enable()">🔔 Enable alarms</button><label>Alert</label>
 <select id="lead"><option value="0">at the event</option><option value="30">30 s early</option><option value="60">60 s early</option></select>
@@ -175,6 +183,29 @@ function calcPub(){
 }
 function startNow(){setAnchor("h0",Date.now())}
 function clearAll(){S[S.mode==="pub"?"anc":"h0"]=null;S.fired={};save();EV=[];render()}
+const msg=(t,ok)=>{$("serr").textContent=t;$("serr").className=ok?"muted":"err"};
+const ck=s=>{let n=0;for(const c of s)n+=c.charCodeAt(0);return(n%36).toString(36).toUpperCase()};
+function mkCode(){
+ const a=A();if(!a){msg("Set your clock first, then generate a code.");return}
+ const pub=S.mode==="pub",body=(pub?"U":"R")+(pub?"2":S.sea)+({auto:"A",wd:"D",we:"E"}[S.day]||"A")+(S.ptype==="00"?"0":"3")+"-"+Math.floor(a/1000).toString(36).toUpperCase();
+ $("sc").value="BF-"+body+ck(body);msg("Code ready. Copy it and send it to your team.",1);
+}
+function joinCode(v){
+ v=(typeof v==="string"?v:$("jc").value).replace(/\s/g,"").toUpperCase();
+ const m=v.match(/^BF-(([RU])([23])([ADE])([30])-([0-9A-Z]{5,8}))([0-9A-Z])$/);
+ if(!m||ck(m[1])!==m[7]){msg("That code doesn’t look right. Check it was copied in full.");return}
+ const t=parseInt(m[6],36)*1000,age=Date.now()-t;
+ if(age<-300000||age>43200000){msg("That code is too old or from the future. Ask for a fresh one.");return}
+ S.mode=m[2]==="U"?"pub":"priv";S.sea=m[3];S.day={A:"auto",D:"wd",E:"we"}[m[4]];S.ptype=m[5]==="0"?"00":"30";
+ S[S.mode==="pub"?"anc":"h0"]=t;S.fired={};save();
+ $("day").value=S.day;$("ptype").value=S.ptype;
+ applyUI();build();render();$("jc").value="";msg("Synced! Your timeline now matches the code.",1);
+}
+function cp(k){
+ const c=$("sc").value;if(!c){msg("Generate a code first.");return}
+ const x=k==="link"?location.origin+location.pathname+"#"+c:c;
+ (navigator.clipboard?navigator.clipboard.writeText(x):Promise.reject()).then(()=>msg("Copied!",1),()=>{$("sc").select();msg("Press Ctrl+C to copy.")});
+}
 function applyUI(){
  const pub=S.mode==="pub";
  $("fpriv").disabled=pub;$("fpub").disabled=!pub;
@@ -189,6 +220,7 @@ function setMode(m){S.mode=m;S.fired={};save();applyUI();build();render()}
 setEn();$("vol").value=S.vol||40;$("vol").addEventListener("input",()=>{S.vol=+$("vol").value;save()});$("vol").addEventListener("change",beep);document.addEventListener("pointerdown",()=>{try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();AC.resume()}catch(e){}});
 document.addEventListener("visibilitychange",tick);
 applyUI();build();render();setInterval(tick,1000);
+const h=location.hash.slice(1);if(/^BF-/i.test(h)){joinCode(h);try{history.replaceState(null,"",location.pathname+location.search)}catch(e){}}
 </script>
 </body>
 </html>

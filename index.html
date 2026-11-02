@@ -83,13 +83,14 @@ button.ghost,.seg button:not(.on){background:var(--chip);color:var(--text);borde
 <h2>Alarms &amp; settings</h2>
 <div class="row"><button id="en" onclick="enable()">🔔 Enable alarms</button><label>Alert</label>
 <select id="lead"><option value="0">at the event</option><option value="30">30 s early</option><option value="60">60 s early</option></select>
-<label>Volume</label><input id="vol" type="range" min="5" max="100" value="40"><label><input id="bal" type="checkbox"> Also alarm on berry spawns (private)</label></div>
+<label>Volume</label><input id="vol" type="range" min="5" max="100" value="40"><label><input id="bal" type="checkbox"> Also alarm on berry spawns (private)</label><label><input id="hal" type="checkbox"> Also alarm on Pumpkin Snowman spawns (private)</label></div>
 <div class="muted">Sound needs one tap on the page first (after a reload too). Keep this tab visible: browsers slow background tabs, so an alarm can arrive late.</div>
 </div>
 
 <div class="card" id="status"></div>
 <div class="card"><h2>Milestones (fruits and raids)</h2><div class="chips" id="ms"></div><div class="muted" id="fnote" style="margin-top:8px"></div></div>
 <div class="card" id="berr"><h2>🫐 Berries (separate from fruits)</h2><div id="bb"></div></div>
+<div class="card" id="hall"><h2>🎃 Pumpkin Snowman (Halloween, separate)</h2><div id="hb"></div></div>
 <div class="card"><h2>Upcoming (next 6)</h2><div class="list" id="up"></div></div>
 
 <div class="note">🚨 Server fruits only appear at specific spawn locations. Without a fruit notifier you must know the exact spots: <a href="https://blox-fruits.fandom.com/wiki/Fruit_Spawn_Locations" target="_blank" rel="noopener">fruit spawn location guide</a>.</div>
@@ -104,9 +105,9 @@ const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}};
 const clock=ms=>new Date(ms).toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit",second:"2-digit",hour12:true});
 const dur=s=>{s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return(h?h+":"+p(m):m)+":"+p(s%60)};
 const A=()=>S.mode==="pub"?S.anc:S.h0;
-let EV=[],BE=[];
+let EV=[],BE=[],HE=[];
 function build(){
- EV=[];BE=[];const a=A();if(!a)return;
+ EV=[];BE=[];HE=[];const a=A();if(!a)return;
  const we=S.day==="auto"?[0,6].includes(new Date(a).getDay()):S.day==="we";
  const add=(m,type,label,ms)=>EV.push({t:a+m*6e4,type,label,ms});
  if(S.mode==="pub"){
@@ -121,17 +122,24 @@ function build(){
  }
  EV.sort((a,b)=>a.t-b.t);
  if(S.mode!=="pub")for(let m=15;m<=360;m+=15)BE.push({t:a+m*6e4,d:a+(m+60)*6e4,i:m/15});
+ if(S.mode!=="pub")for(let m=0;m<=180;m+=30)HE.push({t:a+m*6e4,d:a+(m+10)*6e4,i:m/30+1});
+}
+const fdur=s=>{s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60);return(h?h+" hr ":"")+(h||m?m+" min ":"")+(s%60)+" s"};
+function renderH(now,a,pub){
+ $("hall").style.display=pub?"none":"block";if(pub)return;
+ const nh=HE.find(h=>h.t>now),ac=HE.filter(h=>h.t<=now&&h.d>now),lh=HE.filter(h=>h.t<=now).pop();
+ $("hb").innerHTML=!a?"<div class='muted'>Starts once Hour 0 is set. The first Pumpkin Snowman spawns at Hour 0, then one every 30 min.</div>":(nh?"<div>Next spawn in <b>"+fdur((nh.t-now)/1000)+"</b> (at "+clock(nh.t)+"). A new one spawns every 30 min.</div>":"<div class='muted'>No more spawns tracked.</div>")+"<div class='muted' style='margin:8px 0 4px'>Active now ("+ac.length+"). Each despawns 10 min after it spawns.</div><div class='list'>"+(ac.map(h=>"<div><span>Pumpkin Snowman #"+h.i+"</span><span>despawns "+clock(h.d)+" · "+fdur((h.d-now)/1000)+" left</span></div>").join("")||"<div class='muted'>None right now.</div>")+"</div>"+(lh?"<div class='muted' style='margin-top:6px'>Last spawn: #"+lh.i+" at "+clock(lh.t)+(lh.d>now?"":" (despawned "+clock(lh.d)+")")+"</div>":"");
 }
 function renderB(now,a,pub){
  $("berr").style.display=pub?"none":"block";
  $("fnote").textContent=pub?"":"Private server: 2 server fruits + 2 raids, plus 1 to 2 gacha rolls (not tracked here) = about 5 to 6 fruits in the first 3 hours, depending on whether your gacha is on cooldown at server start.";
  if(pub)return;
- const nb=BE.find(b=>b.t>now),ac=BE.filter(b=>b.t<=now&&b.d>now);
- $("bb").innerHTML=!a?"<div class='muted'>Starts once Hour 0 is set. The first berry spawns 15 min after server start.</div>":(nb?"<div>Next berry spawns in <b>"+dur((nb.t-now)/1000)+"</b> · "+clock(nb.t)+"</div>":"<div class='muted'>No more berry spawns tracked.</div>")+"<div class='muted' style='margin:8px 0 4px'>Active berries ("+ac.length+"). Each despawns 1 hour after it spawns.</div><div class='list'>"+(ac.map(b=>"<div><span>Berry #"+b.i+"</span><span>despawns "+clock(b.d)+" · "+dur((b.d-now)/1000)+" left</span></div>").join("")||"<div class='muted'>None yet.</div>")+"</div>";
+ const nb=BE.find(b=>b.t>now),ac=BE.filter(b=>b.t<=now&&b.d>now),lb=BE.filter(b=>b.t<=now).pop();
+ $("bb").innerHTML=!a?"<div class='muted'>Starts once Hour 0 is set. The first berry spawns 15 min after server start.</div>":(nb?"<div>Next berry spawns in <b>"+fdur((nb.t-now)/1000)+"</b> (at "+clock(nb.t)+"). A new one spawns every 15 min.</div>":"<div class='muted'>No more berry spawns tracked.</div>")+"<div class='muted' style='margin:8px 0 4px'>Active berries ("+ac.length+"). Each despawns 1 hour after it spawns.</div><div class='list'>"+(ac.map(b=>"<div><span>Berry #"+b.i+"</span><span>despawns "+clock(b.d)+" · "+fdur((b.d-now)/1000)+" left</span></div>").join("")||"<div class='muted'>None right now.</div>")+"</div>"+(lb?"<div class='muted' style='margin-top:6px'>Last spawn: #"+lb.i+" at "+clock(lb.t)+"</div>":"");
 }
 function render(){
  const now=Date.now(),a=A(),pub=S.mode==="pub";
- renderB(now,a,pub);
+ renderB(now,a,pub);renderH(now,a,pub);
  if(!a){$("status").innerHTML="<h2>Status</h2><div class='muted'>"+(pub?"Enter the Factory Raid notification time above and the timeline appears here.":"Enter your boss timer above (or press “Server just started”) and the timeline appears here.")+"</div>";$("ms").innerHTML="";$("up").innerHTML="";return}
  const up=EV.filter(e=>e.t>now),nx=up.find(e=>e.ms);
  $("status").innerHTML="<h2>Next milestone</h2>"+(nx?"<div class='big'>"+dur((nx.t-now)/1000)+"</div><div>"+nx.label+" · "+clock(nx.t)+"</div>":"<div class='big'>Done</div><div class='muted'>All milestones passed. Enter a new server above.</div>")+
@@ -149,7 +157,7 @@ function fire(e,left){
 }
 function tick(){
  const now=Date.now(),a=A();
- if(S.on&&a){let ch=0;const chk=e=>{const st=e.t-S.lead*1000,k=a+"|"+e.t+(e.b||"");if(now>=st&&now<st+90000&&e.t>now-5000&&!S.fired[k]){S.fired[k]=1;ch=1;fire(e,(e.t-now)/1000)}};EV.forEach(e=>{if(e.ms)chk(e)});if(S.bal)BE.forEach(b=>chk({t:b.t,b:"b",label:"🫐 Berry #"+b.i+" spawns"}));if(ch)save()}
+ if(S.on&&a){let ch=0;const chk=e=>{const st=e.t-S.lead*1000,k=a+"|"+e.t+(e.b||"");if(now>=st&&now<st+90000&&e.t>now-5000&&!S.fired[k]){S.fired[k]=1;ch=1;fire(e,(e.t-now)/1000)}};EV.forEach(e=>{if(e.ms)chk(e)});if(S.bal)BE.forEach(b=>chk({t:b.t,b:"b",label:"🫐 Berry #"+b.i+" spawns"}));if(S.hal)HE.forEach(h=>chk({t:h.t,b:"h",label:"🎃 Pumpkin Snowman #"+h.i+" spawns"}));if(ch)save()}
  render();
 }
 function enable(){
@@ -215,7 +223,7 @@ function applyUI(){
  $("modeNote").textContent=pub?"Public mode: the Factory Raid time is the clock (Sea 2 only). The private inputs are off.":"Private mode: the boss timer gives Hour 0. The public inputs are off.";
 }
 function setMode(m){S.mode=m;S.fired={};save();applyUI();build();render()}
-["sea","day","lead"].forEach(i=>$(i).addEventListener("change",()=>{S[i]=i==="lead"?+$(i).value:$(i).value;save();build();render()}));$("bal").addEventListener("change",()=>{S.bal=$("bal").checked;save()});$("bal").checked=!!S.bal;
+["sea","day","lead"].forEach(i=>$(i).addEventListener("change",()=>{S[i]=i==="lead"?+$(i).value:$(i).value;save();build();render()}));$("bal").addEventListener("change",()=>{S.bal=$("bal").checked;save()});$("bal").checked=!!S.bal;$("hal").addEventListener("change",()=>{S.hal=$("hal").checked;save()});$("hal").checked=!!S.hal;
 ["sea","day","lead","ptype"].forEach(i=>{$(i).value=S[i]});
 setEn();$("vol").value=S.vol||40;$("vol").addEventListener("input",()=>{S.vol=+$("vol").value;save()});$("vol").addEventListener("change",beep);document.addEventListener("pointerdown",()=>{try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();AC.resume()}catch(e){}});
 document.addEventListener("visibilitychange",tick);
